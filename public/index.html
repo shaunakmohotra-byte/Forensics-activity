@@ -402,7 +402,7 @@ async function loadCases(){
       <strong>${c.name}</strong>
       <p>${c.details}</p>
       <p>${c.stage}</p>
-      <button onclick="openCase('${c.id}')">View</button>
+      <button onclick="window.location.href='case.html?id=${c.id}'">Open</button>
     `;
 
     caseList.appendChild(div);
