@@ -47,11 +47,43 @@ body {
   border-radius:5px;
 }
 
+.file-upload {
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.file-upload input {
+  display:none;
+}
+
+.upload-btn {
+  background:linear-gradient(135deg,#3b82f6,#1f6feb);
+  padding:10px 16px;
+  border-radius:10px;
+  cursor:pointer;
+}
+
+.file-name {
+  color:#9da7b3;
+  font-size:13px;
+}
+
+textarea {
+  width:100%;
+  padding:10px;
+  background:#0d1117;
+  color:white;
+  border:1px solid #1f2937;
+  border-radius:8px;
+}
+
 button {
   padding:8px 12px;
   border:none;
   border-radius:8px;
   cursor:pointer;
+  margin-top:5px;
 }
 </style>
 </head>
@@ -62,19 +94,63 @@ button {
 
 <div class="card" id="caseInfo"></div>
 
+<!-- USER -->
 <div class="card">
-<h3>Upload Evidence</h3>
-<input type="file" multiple onchange="uploadFiles(event)">
+<input id="username" placeholder="Enter your name">
+<button onclick="setUser()">Set User</button>
 </div>
 
+<!-- UPLOAD -->
+<div class="card">
+<h3>Upload Evidence</h3>
+<div class="file-upload">
+  <label class="upload-btn">
+    Upload Images
+    <input type="file" multiple onchange="uploadFiles(event)">
+  </label>
+  <span id="fileName" class="file-name">No files chosen</span>
+</div>
+</div>
+
+<!-- EVIDENCE -->
 <div class="card">
 <h3>Evidence</h3>
 <div id="gallery" class="gallery"></div>
 </div>
 
+<!-- NOTES -->
+<div class="card">
+<h3>Notes</h3>
+<textarea id="noteInput" placeholder="Write note..."></textarea>
+<button onclick="addNote()">Add Note</button>
+<div id="notesList"></div>
+</div>
+
+<!-- LINKED CASES -->
+<div class="card">
+<h3>Linked Cases</h3>
+<input id="linkId" placeholder="Enter Case ID">
+<button onclick="linkCase()">Link</button>
+<div id="linkedCases"></div>
+</div>
+
+<!-- EXPORT -->
+<div class="card">
+<button onclick="exportCase()">Export Case Report</button>
+</div>
+
 <script>
 const params = new URLSearchParams(window.location.search);
 const caseId = params.get("id");
+
+let currentUser = localStorage.getItem("user") || "Unknown";
+
+// SET USER
+function setUser(){
+  currentUser = username.value;
+  localStorage.setItem("user", currentUser);
+  alert("User set: " + currentUser);
+}
 
 // LOAD CASE
 async function loadCase(){
@@ -89,6 +165,23 @@ async function loadCase(){
   `;
 
   renderEvidence(c);
+
+  // NOTES
+  notesList.innerHTML='';
+  (c.notes || []).forEach(n=>{
+    const div=document.createElement('div');
+    div.className='card';
+    div.textContent = n;
+    notesList.appendChild(div);
+  });
+
+  // LINKS
+  linkedCases.innerHTML='';
+  (c.links || []).forEach(l=>{
+    const div=document.createElement('div');
+    div.innerHTML = `<a href="case.html?id=${l}" style="color:#3b82f6">Case ${l}</a>`;
+    linkedCases.appendChild(div);
+  });
 }
 
 // RENDER EVIDENCE
@@ -134,20 +227,99 @@ function renderEvidence(c){
   });
 }
 
-// UPLOAD
+// UPLOAD FILES
 async function uploadFiles(e){
-  const form = new FormData();
+  const files = e.target.files;
 
-  for(let f of e.target.files){
-    form.append("images",f);
+  document.getElementById('fileName').textContent =
+    files.length + ' file(s) selected';
+
+  if(!files.length) return;
+
+  const form = new FormData();
+  for(let f of files){
+    form.append("images", f);
   }
 
-  await fetch('/upload/'+caseId,{
+  try{
+    const res = await fetch('/upload/' + caseId,{
+      method:'POST',
+      body:form
+    });
+
+    if(!res.ok){
+      alert("Upload failed");
+      return;
+    }
+
+    e.target.value = "";
+    await loadCase();
+
+  }catch(err){
+    alert("Server error");
+  }
+}
+
+// ADD NOTE
+async function addNote(){
+  const text = noteInput.value;
+
+  await fetch('/add-note',{
     method:'POST',
-    body:form
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      caseId,
+      text: currentUser + ": " + text
+    })
+  });
+
+  noteInput.value='';
+  loadCase();
+}
+
+// LINK CASE
+async function linkCase(){
+  await fetch('/link-case',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      caseId,
+      targetId:linkId.value
+    })
   });
 
   loadCase();
+}
+
+// EXPORT
+function exportCase(){
+  fetch('/case/'+caseId)
+  .then(res=>res.json())
+  .then(c=>{
+    const text = `
+CASE REPORT
+===========
+
+ID: ${c.id}
+Name: ${c.name}
+Stage: ${c.stage}
+
+Details:
+${c.details}
+
+Notes:
+${(c.notes||[]).join("\n")}
+
+Linked Cases:
+${(c.links||[]).join(", ")}
+    `;
+
+    const blob = new Blob([text], {type:"text/plain"});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `case_${c.id}.txt`;
+    a.click();
+  });
 }
 
 // INIT
