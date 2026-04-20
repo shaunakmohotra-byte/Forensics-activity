@@ -353,21 +353,45 @@ async function addNote(){
 
 // LINK CASE
 async function linkCase(){
-  if(!linkId.value) return;
+  const target = linkId.value.trim();
 
-  await fetch('/link-case',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-      caseId,
-      targetId:linkId.value
-    })
-  });
+  if(!target){
+    alert("Enter a case ID");
+    return;
+  }
 
-  linkId.value='';
-  loadCase();
+  if(target === caseId){
+    alert("Cannot link a case to itself");
+    return;
+  }
+
+  try {
+    const res = await fetch('/link-case',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        caseId,
+        targetId: target
+      })
+    });
+
+    const data = await res.json();
+
+    if(!res.ok){
+      alert("Link failed: " + (data.error || "unknown"));
+      return;
+    }
+
+    linkId.value = "";
+    await loadCase();
+
+    alert("Cases linked successfully");
+
+  } catch(err){
+    console.error(err);
+    alert("Server error");
+  }
 }
-
 // EXPORT
 function exportCase(){
   fetch('/case/'+caseId)
