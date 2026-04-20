@@ -249,9 +249,14 @@ async function loadCase(){
 
   linkedCases.innerHTML='';
   (c.linkedCases || []).forEach(l=>{
-    const div=document.createElement('div');
-    div.innerHTML = `<a href="case.html?id=${l}" style="color:#3b82f6">Case ${l}</a>`;
-    linkedCases.appendChild(div);
+  const div=document.createElement('div');
+  div.innerHTML = `
+    <a href="case.html?id=${l}" style="color:#3b82f6">
+      Case ${l}
+    </a>
+  `;
+  linkedCases.appendChild(div);
+});
   });
 }
 
