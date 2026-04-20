@@ -295,7 +295,7 @@ async function openCase(id){
   });
 
   showPage('timeline');
-  loadEvidence(id);
+  
 }
 async function loadEvidence(id){
   const res = await fetch('/case/'+id);
@@ -369,7 +369,8 @@ async function handleUpload(e){
     body:form
   });
 
-  openCase(currentCaseId);
+  await openCase(currentCaseId);
+  showPage('evidence');
 }
 
 // VIEWER
@@ -387,6 +388,26 @@ window.onload = ()=>{
   showPage('cases');
   loadCases();
 };
+async function loadCases(){
+  const res = await fetch('/cases');
+  const data = await res.json();
+
+  caseList.innerHTML='';
+
+  data.forEach(c=>{
+    const div=document.createElement('div');
+    div.className='card';
+
+    div.innerHTML=`
+      <strong>${c.name}</strong>
+      <p>${c.details}</p>
+      <p>${c.stage}</p>
+      <button onclick="openCase('${c.id}')">View</button>
+    `;
+
+    caseList.appendChild(div);
+  });
+}
 </script>
 
 </div>
