@@ -5,16 +5,58 @@
 <title>Case File</title>
 
 <style>
+:root {
+  --bg:#0b0f14;
+  --panel:#121821;
+  --card:#161b22;
+  --accent:#3b82f6;
+  --accent-soft:#1f6feb;
+  --danger:#ef4444;
+  --text:#e6edf3;
+  --muted:#9da7b3;
+}
+
 body {
   margin:0;
   font-family:'Segoe UI';
-  background:#0b0f14;
-  color:white;
+  background:var(--bg);
+  color:var(--text);
+  display:flex;
+}
+
+/* SIDEBAR */
+.sidebar {
+  width:230px;
+  background:linear-gradient(180deg,#0f1720,#0b0f14);
+  padding:20px;
+  height:100vh;
+  border-right:1px solid #1f2937;
+  position:fixed;
+}
+
+.sidebar h2 { color:var(--accent); margin-bottom:25px; }
+
+.nav-item {
+  padding:10px;
+  border-radius:8px;
+  margin-bottom:8px;
+  color:var(--muted);
+  cursor:pointer;
+}
+.nav-item:hover {
+  background:#1a2330;
+  color:var(--accent);
+}
+
+/* MAIN */
+.main {
+  margin-left:250px;
   padding:30px;
+  width:100%;
 }
 
 .card {
-  background:#161b22;
+  background:var(--card);
   padding:20px;
   border-radius:12px;
   margin-bottom:20px;
@@ -42,7 +84,7 @@ body {
 .tag {
   margin-top:5px;
   font-size:12px;
-  background:#1f6feb;
+  background:var(--accent-soft);
   padding:3px 6px;
   border-radius:5px;
 }
@@ -52,20 +94,17 @@ body {
   align-items:center;
   gap:10px;
 }
-
-.file-upload input {
-  display:none;
-}
+.file-upload input { display:none; }
 
 .upload-btn {
-  background:linear-gradient(135deg,#3b82f6,#1f6feb);
+  background:linear-gradient(135deg,var(--accent),var(--accent-soft));
   padding:10px 16px;
   border-radius:10px;
   cursor:pointer;
 }
 
 .file-name {
-  color:#9da7b3;
+  color:var(--muted);
   font-size:13px;
 }
 
@@ -89,6 +128,17 @@ button {
 </head>
 
 <body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <h2>🧪 Forensic UI</h2>
+  <div class="nav-item" onclick="goHome()">📂 Cases</div>
+  <div class="nav-item" onclick="goTimeline()">🧬 Decomposition</div>
+  <div class="nav-item" onclick="scrollToEvidence()">📸 Evidence</div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
 
 <h1>🧾 Case File</h1>
 
@@ -139,13 +189,31 @@ button {
 <button onclick="exportCase()">Export Case Report</button>
 </div>
 
+</div>
+
 <script>
 const params = new URLSearchParams(window.location.search);
 const caseId = params.get("id");
 
+if(!caseId){
+  document.body.innerHTML = "<h2 style='color:red'>Invalid Case ID</h2>";
+  throw new Error("No case ID");
+}
+
 let currentUser = localStorage.getItem("user") || "Unknown";
 
-// SET USER
+// NAVIGATION
+function goHome(){
+  window.location.href = "index.html";
+}
+function goTimeline(){
+  window.location.href = "index.html";
+}
+function scrollToEvidence(){
+  document.getElementById("gallery").scrollIntoView({behavior:"smooth"});
+}
+
+// USER
 function setUser(){
   currentUser = username.value;
   localStorage.setItem("user", currentUser);
@@ -157,6 +225,11 @@ async function loadCase(){
   const res = await fetch('/case/'+caseId);
   const c = await res.json();
 
+  if(!c){
+    caseInfo.innerHTML = "<p>Case not found</p>";
+    return;
+  }
+
   caseInfo.innerHTML = `
     <p><strong>ID:</strong> ${c.id}</p>
     <p><strong>Name:</strong> ${c.name}</p>
@@ -166,29 +239,27 @@ async function loadCase(){
 
   renderEvidence(c);
 
-  // NOTES
   notesList.innerHTML='';
   (c.notes || []).forEach(n=>{
     const div=document.createElement('div');
     div.className='card';
-    div.textContent = n;
+    div.textContent = n.text + " (" + n.time + ")";
     notesList.appendChild(div);
   });
 
-  // LINKS
   linkedCases.innerHTML='';
-  (c.links || []).forEach(l=>{
+  (c.linkedCases || []).forEach(l=>{
     const div=document.createElement('div');
     div.innerHTML = `<a href="case.html?id=${l}" style="color:#3b82f6">Case ${l}</a>`;
     linkedCases.appendChild(div);
   });
 }
 
-// RENDER EVIDENCE
+// EVIDENCE
 function renderEvidence(c){
   gallery.innerHTML='';
 
-  if(!c.evidence.length){
+  if(!c.evidence || !c.evidence.length){
     gallery.innerHTML = `<p>No evidence yet</p>`;
     return;
   }
@@ -227,7 +298,7 @@ function renderEvidence(c){
   });
 }
 
-// UPLOAD FILES
+// UPLOAD
 async function uploadFiles(e){
   const files = e.target.files;
 
@@ -247,8 +318,10 @@ async function uploadFiles(e){
       body:form
     });
 
+    const data = await res.json();
+
     if(!res.ok){
-      alert("Upload failed");
+      alert("Upload failed: " + (data.error || "unknown"));
       return;
     }
 
@@ -260,9 +333,10 @@ async function uploadFiles(e){
   }
 }
 
-// ADD NOTE
+// NOTES
 async function addNote(){
   const text = noteInput.value;
+  if(!text) return;
 
   await fetch('/add-note',{
     method:'POST',
@@ -279,6 +353,8 @@ async function addNote(){
 
 // LINK CASE
 async function linkCase(){
+  if(!linkId.value) return;
+
   await fetch('/link-case',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
@@ -288,6 +364,7 @@ async function linkCase(){
     })
   });
 
+  linkId.value='';
   loadCase();
 }
 
@@ -308,10 +385,10 @@ Details:
 ${c.details}
 
 Notes:
-${(c.notes||[]).join("\n")}
+${(c.notes||[]).map(n=>n.text).join("\n")}
 
 Linked Cases:
-${(c.links||[]).join(", ")}
+${(c.linkedCases||[]).join(", ")}
     `;
 
     const blob = new Blob([text], {type:"text/plain"});
