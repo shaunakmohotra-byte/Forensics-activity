@@ -124,16 +124,6 @@ app.post("/link-case", (req, res) => {
     return res.status(400).json({ error: "Cannot link same case" });
   }
 
-  if (!c1.linkedCases.includes(targetId)) {
-    c1.linkedCases.push(targetId);
-  }
-
-  if (!c2.linkedCases.includes(caseId)) {
-    c2.linkedCases.push(caseId);
-  }
-
-  res.json(c1);
-});
   // prevent duplicates
   if (!c1.linkedCases.includes(targetId)) {
     c1.linkedCases.push(targetId);
