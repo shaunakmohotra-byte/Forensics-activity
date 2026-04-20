@@ -117,9 +117,23 @@ app.post("/link-case", (req, res) => {
   const c2 = cases.find(c => c.id === targetId);
 
   if (!c1 || !c2) {
-    return res.status(404).json({ error: "One or both cases not found" });
+    return res.status(404).json({ error: "Case not found" });
   }
 
+  if (caseId === targetId) {
+    return res.status(400).json({ error: "Cannot link same case" });
+  }
+
+  if (!c1.linkedCases.includes(targetId)) {
+    c1.linkedCases.push(targetId);
+  }
+
+  if (!c2.linkedCases.includes(caseId)) {
+    c2.linkedCases.push(caseId);
+  }
+
+  res.json(c1);
+});
   // prevent duplicates
   if (!c1.linkedCases.includes(targetId)) {
     c1.linkedCases.push(targetId);
