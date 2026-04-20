@@ -203,12 +203,8 @@ if(!caseId){
 let currentUser = localStorage.getItem("user") || "Unknown";
 
 // NAVIGATION
-function goHome(){
-  window.location.href = "index.html";
-}
-function goTimeline(){
-  window.location.href = "index.html";
-}
+function goHome(){ window.location.href = "index.html"; }
+function goTimeline(){ window.location.href = "index.html"; }
 function scrollToEvidence(){
   document.getElementById("gallery").scrollIntoView({behavior:"smooth"});
 }
@@ -239,6 +235,7 @@ async function loadCase(){
 
   renderEvidence(c);
 
+  // NOTES
   notesList.innerHTML='';
   (c.notes || []).forEach(n=>{
     const div=document.createElement('div');
@@ -247,16 +244,16 @@ async function loadCase(){
     notesList.appendChild(div);
   });
 
+  // LINKED CASES
   linkedCases.innerHTML='';
   (c.linkedCases || []).forEach(l=>{
-  const div=document.createElement('div');
-  div.innerHTML = `
-    <a href="case.html?id=${l}" style="color:#3b82f6">
-      Case ${l}
-    </a>
-  `;
-  linkedCases.appendChild(div);
-});
+    const div=document.createElement('div');
+    div.innerHTML = `
+      <a href="case.html?id=${l}" style="color:#3b82f6">
+        Case ${l}
+      </a>
+    `;
+    linkedCases.appendChild(div);
   });
 }
 
@@ -323,10 +320,8 @@ async function uploadFiles(e){
       body:form
     });
 
-    const data = await res.json();
-
     if(!res.ok){
-      alert("Upload failed: " + (data.error || "unknown"));
+      alert("Upload failed");
       return;
     }
 
@@ -366,37 +361,30 @@ async function linkCase(){
   }
 
   if(target === caseId){
-    alert("Cannot link a case to itself");
+    alert("Cannot link same case");
     return;
   }
 
-  try {
+  try{
     const res = await fetch('/link-case',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        caseId,
-        targetId: target
-      })
+      body:JSON.stringify({caseId,targetId:target})
     });
 
-    const data = await res.json();
-
     if(!res.ok){
-      alert("Link failed: " + (data.error || "unknown"));
+      alert("Link failed");
       return;
     }
 
-    linkId.value = "";
+    linkId.value='';
     await loadCase();
 
-    alert("Cases linked successfully");
-
-  } catch(err){
-    console.error(err);
+  }catch(err){
     alert("Server error");
   }
 }
+
 // EXPORT
 function exportCase(){
   fetch('/case/'+caseId)
