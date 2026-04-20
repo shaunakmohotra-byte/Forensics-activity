@@ -204,6 +204,11 @@ button:hover { opacity:0.9; }
 </div>
 
 <script>
+setInterval(() => {
+  if (document.visibilityState === "visible") {
+    loadCases();
+  }
+}, 5000); // refresh every 5 seconds
 let currentCaseId = null;
 
 // NAVIGATION
