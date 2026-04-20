@@ -1,43 +1,59 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <title>Forensic Dashboard</title>
 
 <style>
-body {margin:0;font-family:sans-serif;background:#0b0f14;color:white;display:flex;}
-.sidebar {width:220px;background:#111;padding:20px;height:100vh;}
-.nav-item {padding:10px;margin:5px 0;cursor:pointer;color:#aaa;}
-.nav-item:hover {color:#3b82f6;}
-.main {flex:1;padding:20px;}
-.card {background:#161b22;padding:15px;margin:10px 0;border-radius:10px;}
+/* SAME STYLES (UNCHANGED) */
+:root {
+  --bg:#0b0f14;
+  --panel:#121821;
+  --card:#161b22;
+  --accent:#3b82f6;
+  --accent-soft:#1f6feb;
+  --danger:#ef4444;
+  --text:#e6edf3;
+  --muted:#9da7b3;
+}
+body {margin:0;font-family:'Segoe UI';background:var(--bg);color:var(--text);display:flex;}
+.sidebar {width:230px;background:#0f1720;padding:20px;height:100vh;}
+.nav-item {padding:10px;margin:5px 0;color:var(--muted);cursor:pointer;}
+.nav-item:hover {color:var(--accent);}
+.main {flex:1;padding:30px;}
+.card {background:var(--card);padding:15px;border-radius:10px;margin-bottom:10px;}
 .hidden {display:none;}
 .gallery {display:flex;flex-wrap:wrap;}
-.evidence-card {margin:5px;}
 .evidence-card img {width:120px;height:90px;object-fit:cover;cursor:pointer;}
-#viewer {position:fixed;top:0;left:0;width:100%;height:100%;background:black;display:none;align-items:center;justify-content:center;}
+#viewer {position:fixed;top:0;left:0;width:100%;height:100%;display:none;justify-content:center;align-items:center;background:black;}
 #viewer img {max-width:90%;}
 </style>
-
 </head>
+
 <body>
 
 <div class="sidebar">
-<div class="nav-item" onclick="showPage('cases')">Cases</div>
-<div class="nav-item" onclick="showPage('evidence')">Case File</div>
+<h2>🧪 Forensic UI</h2>
+<div class="nav-item" onclick="showPage('cases')">📂 Cases</div>
+<div class="nav-item" onclick="showPage('timeline')">🧬 Decomposition</div>
+<div class="nav-item" onclick="showPage('evidence')">📸 Evidence</div>
 </div>
 
 <div class="main">
 
 <!-- CASES -->
 <div id="casesPage">
-<input id="search" placeholder="Search...">
+<div class="header">Case Management</div>
+
 <div class="card">
-<input id="caseName" placeholder="Name">
+<input id="caseName" placeholder="Case Name">
 <input id="caseDetails" placeholder="Details">
 <select id="caseStage">
-<option>Fresh</option><option>Bloat</option>
-<option>Active</option><option>Advanced</option><option>Skeleton</option>
+<option value="Fresh">Fresh</option>
+<option value="Bloat">Bloat</option>
+<option value="Active">Active</option>
+<option value="Advanced">Advanced</option>
+<option value="Skeleton">Skeleton</option>
 </select>
 <button onclick="addCase()">Add Case</button>
 </div>
@@ -45,35 +61,20 @@ body {margin:0;font-family:sans-serif;background:#0b0f14;color:white;display:fle
 <div id="caseList"></div>
 </div>
 
-<!-- CASE FILE -->
+<!-- TIMELINE -->
+<div id="timelinePage" class="hidden">
+<div class="header">Decomposition Timeline</div>
+
+<div class="card">
+<div id="selectedCase">No case selected</div>
+</div>
+</div>
+
+<!-- EVIDENCE -->
 <div id="evidencePage" class="hidden">
 
 <div class="card">
-<h3>Case File</h3>
-<div id="caseFile"></div>
-<select id="statusSelect">
-<option>Open</option><option>Closed</option><option>Cold</option>
-</select>
-<button onclick="updateStatus()">Update</button>
-</div>
-
-<div class="card">
-<h3>Notes</h3>
-<textarea id="noteInput"></textarea>
-<button onclick="addNote()">Add</button>
-<div id="notes"></div>
-</div>
-
-<div class="card">
-<h3>Link Cases</h3>
-<input id="linkId" placeholder="Case ID">
-<button onclick="linkCase()">Link</button>
-<div id="linkedCases"></div>
-</div>
-
-<div class="card">
 <input type="file" multiple onchange="handleUpload(event)">
-<div id="dropZone">Drop Files</div>
 </div>
 
 <div class="gallery" id="gallery"></div>
@@ -87,29 +88,42 @@ body {margin:0;font-family:sans-serif;background:#0b0f14;color:white;display:fle
 </div>
 
 <script>
-let currentCaseId=null;
+let currentCaseId = null;
 
+// NAVIGATION
 function showPage(p){
-casesPage.classList.add('hidden');
-evidencePage.classList.add('hidden');
+['casesPage','timelinePage','evidencePage'].forEach(id=>{
+document.getElementById(id).classList.add('hidden');
+});
 document.getElementById(p+'Page').classList.remove('hidden');
 }
 
+// LOAD CASES
 async function loadCases(){
-const res=await fetch('/cases');
-const data=await res.json();
+const res = await fetch('/cases');
+const data = await res.json();
 
 caseList.innerHTML='';
+
 data.forEach(c=>{
-let d=document.createElement('div');
-d.className='card';
-d.innerHTML=`<b>${c.name}</b><br>${c.stage}<br>
-<button onclick="openCase('${c.id}')">Open</button>`;
-caseList.appendChild(d);
+let div=document.createElement('div');
+div.className='card';
+
+div.innerHTML=`
+<strong>${c.name}</strong>
+<p>${c.details}</p>
+<p>${c.stage}</p>
+<button onclick="openCase('${c.id}')">Open</button>
+`;
+
+caseList.appendChild(div);
 });
 }
 
+// ADD CASE
 async function addCase(){
+if(!caseName.value) return;
+
 await fetch('/add-case',{
 method:'POST',
 headers:{'Content-Type':'application/json'},
@@ -119,100 +133,75 @@ details:caseDetails.value,
 stage:caseStage.value
 })
 });
+
+caseName.value='';
+caseDetails.value='';
+
 loadCases();
 }
 
+// OPEN CASE
 async function openCase(id){
-currentCaseId=id;
+currentCaseId = id;
 
-const res=await fetch('/case/'+id);
-const c=await res.json();
+const res = await fetch('/case/'+id);
+const c = await res.json();
 
-caseFile.innerHTML=`ID:${c.id}<br>Status:${c.status}<br>${c.details}`;
-statusSelect.value=c.status;
+selectedCase.innerHTML = `
+<strong>${c.name}</strong><br>
+${c.stage}<br>
+${c.details}
+`;
 
-notes.innerHTML='';
-c.notes.forEach(n=>{
-notes.innerHTML+=`<div class="card">${n.text}<br>${n.time}</div>`;
-});
-
-linkedCases.innerHTML=c.linkedCases.join('<br>');
-
+// LOAD EVIDENCE
 gallery.innerHTML='';
-c.evidence.forEach((e,i)=>{
+
+c.evidence.forEach(e=>{
 let div=document.createElement('div');
 div.className='evidence-card';
 
 let img=document.createElement('img');
 img.src=e.url;
-img.onclick=()=>{viewer.style.display='flex';viewerImg.src=e.url};
+img.onclick=()=>openViewer(e.url);
 
 div.appendChild(img);
 gallery.appendChild(div);
 });
 
-showPage('evidence');
+showPage('timeline');
 }
 
+// UPLOAD FILES
 async function handleUpload(e){
-if(!currentCaseId)return alert("Open case");
+if(!currentCaseId){
+alert("Select a case first");
+return;
+}
 
-const form=new FormData();
-for(let f of e.target.files)form.append("images",f);
+const form = new FormData();
+for(let f of e.target.files){
+form.append("images",f);
+}
 
-await fetch('/upload/'+currentCaseId,{method:'POST',body:form});
+await fetch('/upload/'+currentCaseId,{
+method:"POST",
+body:form
+});
+
 openCase(currentCaseId);
 }
 
-dropZone.ondrop=e=>{
-e.preventDefault();
-handleUpload({target:{files:e.dataTransfer.files}});
+// VIEWER
+function openViewer(src){
+viewer.style.display='flex';
+viewerImg.src=src;
+}
+
+// INIT
+window.onload = ()=>{
+showPage('cases');
+loadCases();
 };
-dropZone.ondragover=e=>e.preventDefault();
-
-async function addNote(){
-await fetch('/add-note',{
-method:'POST',
-headers:{'Content-Type':'application/json'},
-body:JSON.stringify({caseId:currentCaseId,text:noteInput.value})
-});
-noteInput.value='';
-openCase(currentCaseId);
-}
-
-async function linkCase(){
-await fetch('/link-case',{
-method:'POST',
-headers:{'Content-Type':'application/json'},
-body:JSON.stringify({
-caseId:currentCaseId,
-targetId:linkId.value
-})
-});
-linkId.value='';
-openCase(currentCaseId);
-}
-
-async function updateStatus(){
-await fetch('/status',{
-method:'POST',
-headers:{'Content-Type':'application/json'},
-body:JSON.stringify({
-caseId:currentCaseId,
-status:statusSelect.value
-})
-});
-openCase(currentCaseId);
-}
-
-search.oninput=()=>{
-const v=search.value.toLowerCase();
-[...caseList.children].forEach(c=>{
-c.style.display=c.innerText.toLowerCase().includes(v)?'block':'none';
-});
-};
-
-window.onload=loadCases;
 </script>
 
 </body>
