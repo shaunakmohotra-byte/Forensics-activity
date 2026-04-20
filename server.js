@@ -11,7 +11,7 @@ app.use("/uploads", express.static("uploads"));
 
 if (!fs.existsSync("uploads")) fs.mkdirSync("uploads");
 
-// STORAGE CONFIG
+// STORAGE
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, "uploads"),
   filename: (req, file, cb) =>
@@ -19,7 +19,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// IN-MEMORY DATABASE
+// DATABASE (memory)
 let cases = [];
 
 // CREATE CASE
@@ -31,7 +31,11 @@ app.post("/add-case", (req, res) => {
     name,
     details,
     stage,
-    evidence: []
+    status: "Open",
+    investigator: "Unassigned",
+    evidence: [],
+    notes: [],
+    linkedCases: []
   };
 
   cases.push(newCase);
@@ -39,16 +43,18 @@ app.post("/add-case", (req, res) => {
 });
 
 // GET ALL CASES
-app.get("/cases", (req, res) => {
-  res.json(cases);
+app.get("/cases", (req, res) => res.json(cases));
+
+// GET SINGLE CASE
+app.get("/case/:id", (req, res) => {
+  const found = cases.find(c => c.id === req.params.id);
+  res.json(found);
 });
 
-// UPLOAD MULTIPLE FILES TO CASE
-app.post("/upload/:caseId", upload.array("images", 10), (req, res) => {
-  const caseId = req.params.caseId;
-  const found = cases.find(c => c.id === caseId);
-
-  if (!found) return res.status(404).send("Case not found");
+// UPLOAD FILES
+app.post("/upload/:caseId", upload.array("images", 20), (req, res) => {
+  const found = cases.find(c => c.id === req.params.caseId);
+  if (!found) return res.sendStatus(404);
 
   const files = req.files.map(f => ({
     url: `/uploads/${f.filename}`,
@@ -56,11 +62,10 @@ app.post("/upload/:caseId", upload.array("images", 10), (req, res) => {
   }));
 
   found.evidence.push(...files);
-
   res.json(found);
 });
 
-// UPDATE TAG
+// TAG
 app.post("/tag", (req, res) => {
   const { caseId, index, tag } = req.body;
   const found = cases.find(c => c.id === caseId);
@@ -72,10 +77,44 @@ app.post("/tag", (req, res) => {
   res.json(found);
 });
 
-// GET SINGLE CASE
-app.get("/case/:id", (req, res) => {
-  const found = cases.find(c => c.id === req.params.id);
+// NOTES
+app.post("/add-note", (req, res) => {
+  const { caseId, text } = req.body;
+  const found = cases.find(c => c.id === caseId);
+
+  if (!found) return res.sendStatus(404);
+
+  found.notes.push({
+    text,
+    time: new Date().toLocaleString()
+  });
+
   res.json(found);
 });
 
-app.listen(3000, () => console.log("Server running on 3000"));
+// LINK CASES
+app.post("/link-case", (req, res) => {
+  const { caseId, targetId } = req.body;
+
+  const c1 = cases.find(c => c.id === caseId);
+  const c2 = cases.find(c => c.id === targetId);
+
+  if (!c1 || !c2) return res.sendStatus(404);
+
+  if (!c1.linkedCases.includes(targetId)) c1.linkedCases.push(targetId);
+  if (!c2.linkedCases.includes(caseId)) c2.linkedCases.push(caseId);
+
+  res.json(c1);
+});
+
+// STATUS
+app.post("/status", (req, res) => {
+  const { caseId, status } = req.body;
+  const found = cases.find(c => c.id === caseId);
+
+  if (found) found.status = status;
+
+  res.json(found);
+});
+
+app.listen(3000, () => console.log("Server running"));
