@@ -211,30 +211,17 @@ function showPage(p){
   ['casesPage','timelinePage','evidencePage'].forEach(id=>{
     document.getElementById(id).classList.add('hidden');
   });
+
   document.getElementById(p+'Page').classList.remove('hidden');
-}
 
-// LOAD CASES FROM SERVER
-async function loadCases(){
-  const res = await fetch('/cases');
-  const data = await res.json();
-
-  caseList.innerHTML='';
-
-  data.forEach(c=>{
-    const div=document.createElement('div');
-    div.className='card';
-
-    div.innerHTML=`
-      <strong>${c.name}</strong>
-      <p>${c.details}</p>
-      <p>${c.stage}</p>
-      <button onclick="openCase('${c.id}')">View</button>
-      <button class='close' onclick="deleteCase('${c.id}')">Close</button>
-    `;
-
-    caseList.appendChild(div);
-  });
+  // AUTO LOAD EVIDENCE WHEN OPENING PAGE
+  if(p === 'evidence'){
+    if(currentCaseId){
+      loadEvidence(currentCaseId);
+    } else {
+      gallery.innerHTML = `<p style="color:#9da7b3">Open a case to view evidence</p>`;
+    }
+  }
 }
 
 // ADD CASE (BACKEND)
@@ -308,8 +295,53 @@ async function openCase(id){
   });
 
   showPage('timeline');
+  loadEvidence(id);
 }
+async function loadEvidence(id){
+  const res = await fetch('/case/'+id);
+  const c = await res.json();
 
+  gallery.innerHTML='';
+
+  if(!c.evidence.length){
+    gallery.innerHTML = `<p style="color:#9da7b3">No evidence uploaded</p>`;
+    return;
+  }
+
+  c.evidence.forEach((e,i)=>{
+    let w=document.createElement('div');
+    w.className='evidence-card';
+
+    let img=document.createElement('img');
+    img.src=e.url;
+    img.onclick=()=>openViewer(e.url);
+
+    let sel=document.createElement('select');
+    sel.innerHTML=`<option>Blood</option><option>Scene</option><option>Weapon</option><option>Body</option>`;
+    sel.value = e.tag || "Blood";
+
+    let tag=document.createElement('div');
+    tag.className='tag';
+    tag.textContent='Tag: '+(e.tag || "None");
+
+    sel.onchange=async ()=>{
+      tag.textContent='Tag: '+sel.value;
+
+      await fetch('/tag',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          caseId:currentCaseId,
+          index:i,
+          tag:sel.value
+        })
+      });
+    };
+
+    w.append(img,sel,tag);
+    gallery.appendChild(w);
+  });
+}
 // DELETE CASE (optional but fixes your close button)
 async function deleteCase(id){
   alert("Delete not implemented yet (can add if you want)");
