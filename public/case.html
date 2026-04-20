@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Case File</title>
+
+<style>
+body {
+  margin:0;
+  font-family:'Segoe UI';
+  background:#0b0f14;
+  color:white;
+  padding:30px;
+}
+
+.card {
+  background:#161b22;
+  padding:20px;
+  border-radius:12px;
+  margin-bottom:20px;
+}
+
+.gallery {
+  display:flex;
+  flex-wrap:wrap;
+}
+
+.evidence-card {
+  margin:8px;
+  background:#0d1117;
+  padding:10px;
+  border-radius:10px;
+}
+
+.evidence-card img {
+  width:140px;
+  height:100px;
+  object-fit:cover;
+  cursor:pointer;
+}
+
+.tag {
+  margin-top:5px;
+  font-size:12px;
+  background:#1f6feb;
+  padding:3px 6px;
+  border-radius:5px;
+}
+
+button {
+  padding:8px 12px;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🧾 Case File</h1>
+
+<div class="card" id="caseInfo"></div>
+
+<div class="card">
+<h3>Upload Evidence</h3>
+<input type="file" multiple onchange="uploadFiles(event)">
+</div>
+
+<div class="card">
+<h3>Evidence</h3>
+<div id="gallery" class="gallery"></div>
+</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const caseId = params.get("id");
+
+// LOAD CASE
+async function loadCase(){
+  const res = await fetch('/case/'+caseId);
+  const c = await res.json();
+
+  caseInfo.innerHTML = `
+    <p><strong>ID:</strong> ${c.id}</p>
+    <p><strong>Name:</strong> ${c.name}</p>
+    <p><strong>Stage:</strong> ${c.stage}</p>
+    <p>${c.details}</p>
+  `;
+
+  renderEvidence(c);
+}
+
+// RENDER EVIDENCE
+function renderEvidence(c){
+  gallery.innerHTML='';
+
+  if(!c.evidence.length){
+    gallery.innerHTML = `<p>No evidence yet</p>`;
+    return;
+  }
+
+  c.evidence.forEach((e,i)=>{
+    let div=document.createElement('div');
+    div.className='evidence-card';
+
+    let img=document.createElement('img');
+    img.src=e.url;
+
+    let sel=document.createElement('select');
+    sel.innerHTML=`<option>Blood</option><option>Scene</option><option>Weapon</option><option>Body</option>`;
+    sel.value=e.tag || "Blood";
+
+    let tag=document.createElement('div');
+    tag.className='tag';
+    tag.textContent='Tag: '+(e.tag || "None");
+
+    sel.onchange=async ()=>{
+      tag.textContent='Tag: '+sel.value;
+
+      await fetch('/tag',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          caseId,
+          index:i,
+          tag:sel.value
+        })
+      });
+    };
+
+    div.append(img,sel,tag);
+    gallery.appendChild(div);
+  });
+}
+
+// UPLOAD
+async function uploadFiles(e){
+  const form = new FormData();
+
+  for(let f of e.target.files){
+    form.append("images",f);
+  }
+
+  await fetch('/upload/'+caseId,{
+    method:'POST',
+    body:form
+  });
+
+  loadCase();
+}
+
+// INIT
+loadCase();
+</script>
+
+</body>
+</html>
