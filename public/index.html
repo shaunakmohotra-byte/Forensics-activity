@@ -206,12 +206,22 @@ button:hover { opacity:0.9; }
 <script>
 let currentCaseId = null;
 
-// LOAD CASES FROM SERVER
+// PAGE SWITCHING (FIXED)
+function showPage(page){
+  ['casesPage','timelinePage','evidencePage'].forEach(id=>{
+    document.getElementById(id).classList.add('hidden');
+  });
+
+  document.getElementById(page+'Page').classList.remove('hidden');
+}
+
+// LOAD CASES
 async function loadCases(){
   const res = await fetch('/cases');
   const data = await res.json();
 
-  caseList.innerHTML = '';
+  caseList.innerHTML='';
+
   data.forEach(c=>{
     const div=document.createElement('div');
     div.className='card';
@@ -229,7 +239,9 @@ async function loadCases(){
 
 // ADD CASE
 async function addCase(){
-  const res = await fetch('/add-case',{
+  if(!caseName.value) return;
+
+  await fetch('/add-case',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
@@ -239,35 +251,53 @@ async function addCase(){
     })
   });
 
-  await loadCases();
+  caseName.value='';
+  caseDetails.value='';
+
+  loadCases();
 }
 
-// OPEN CASE FILE
+// OPEN CASE (GLOBAL STATE)
 async function openCase(id){
   currentCaseId = id;
 
   const res = await fetch(`/case/${id}`);
   const c = await res.json();
 
-  showPage('evidence');
+  // SHOW IN TIMELINE
+  selectedCase.innerHTML = `
+    <strong>${c.name}</strong><br>
+    ${c.stage}<br>
+    ${c.details}
+  `;
 
-  gallery.innerHTML = '';
+  // LOAD EVIDENCE
+  gallery.innerHTML='';
+  c.evidence.forEach((e,i)=>renderEvidence(e,i));
 
-  c.evidence.forEach((e,i)=>{
-    renderEvidence(e,i);
-  });
+  showPage('timeline'); // auto open timeline
 }
 
-// UPLOAD FILES TO CURRENT CASE
+// NAVIGATION SAFETY
+document.querySelectorAll('.nav-item').forEach(item=>{
+  item.addEventListener('click', ()=>{
+    if(item.innerText.includes('Evidence') && !currentCaseId){
+      alert("Open a case first");
+      return;
+    }
+  });
+});
+
+// UPLOAD FILES
 async function handleUpload(e){
   if(!currentCaseId){
     alert("Select a case first");
     return;
   }
 
-  const form = new FormData();
+  const form=new FormData();
   for(let f of e.target.files){
-    form.append("images", f);
+    form.append("images",f);
   }
 
   await fetch(`/upload/${currentCaseId}`,{
@@ -313,8 +343,20 @@ function renderEvidence(e,index){
   gallery.appendChild(w);
 }
 
+// VIEWER
+function openViewer(src){
+  viewer.style.display='flex';
+  viewerImg.src=src;
+}
+function closeViewer(){
+  viewer.style.display='none';
+}
+
 // INIT
-loadCases();
+window.onload = ()=>{
+  showPage('cases'); // DEFAULT PAGE
+  loadCases();
+};
 </script>
 
 </div>
